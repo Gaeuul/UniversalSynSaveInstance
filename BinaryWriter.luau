@@ -297,12 +297,19 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean): string
 		end
 	end
 
-	-- 1. Bikin SSTR Chunk
+		-- 1. Bikin SSTR Chunk
 	local class_list = {}
 	for class_name, _ in class_groups do
 		table.insert(class_list, class_name)
 		get_string_id(class_name)
 	end
+	
+	-- [TAMBAHAN]: File Header wajib (Jumlah Class & Jumlah Instance)
+	local f_header = buffer.create(16)
+	buffer.writeu32(f_header, 0, #class_list) -- Jumlah tipe Class
+	buffer.writeu32(f_header, 4, #instances)  -- Total semua objek
+	table.insert(chunks, buffer.tostring(f_header))
+
 	table.insert(chunks, build_SSTR(strings))
 
 	-- 2. Bikin INST Chunk
