@@ -121,26 +121,28 @@ end
 -- 2. CHUNK WRITER (Pencetak Blok Data)
 -- ==========================================
 local function write_chunk(chunk_name: string, data: string): string
-	local compressed_data, uncompressed_size = compress_data(data)
-	local compressed_size = #compressed_data
+	local uncompressed_size = #data
+	
+	-- TRIK BYPASS: Set ke 0 ngasih tau Studio "Jangan di-decompress, ini data mentah!"
+	local compressed_size = 0 
 
-	-- Total ukuran buffer: 16 byte header + ukuran data
-	local b = buffer.create(16 + compressed_size)
+	-- Total ukuran buffer pakai data asli
+	local b = buffer.create(16 + uncompressed_size)
 	
 	-- 4 Byte Pertama: Nama Chunk (INST, PROP, PRNT, dll)
 	buffer.writestring(b, 0, string.sub(chunk_name, 1, 4))
 	
-	-- 4 Byte Kedua: Ukuran Data Terkompresi (Little Endian)
+	-- 4 Byte Kedua: Ukuran Data Terkompresi (0 = Uncompressed)
 	buffer.writeu32(b, 4, compressed_size)
 	
-	-- 4 Byte Ketiga: Ukuran Data Asli (Little Endian)
+	-- 4 Byte Ketiga: Ukuran Data Asli 
 	buffer.writeu32(b, 8, uncompressed_size)
 	
 	-- 4 Byte Keempat: Reserved (Selalu 0)
 	buffer.writeu32(b, 12, 0)
 
-	-- Tulis Datanya
-	buffer.writestring(b, 16, compressed_data)
+	-- Tulis Datanya secara mentah tanpa kompresi LZ4
+	buffer.writestring(b, 16, data)
 
 	return buffer.tostring(b)
 end
