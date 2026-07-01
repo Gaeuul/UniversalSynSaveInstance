@@ -69,7 +69,7 @@ The maintainers do not support or condone misuse of this software and are not re
   - ! Check out [Rojo Rbx Dom Binary] & [Roblox Format Specifications Binary] for more documentation about the Binary File Format!
   - ! Also see [buffer], [bit32] libraries as well as [pack]/[unpack] from the [string] library for more information on how you can implement something like this!
   - ! [Rbx-Binary-Format]
-- [ ] Add table.clone instead {} in some cases if possible
+- [x] Add table.clone instead {} in some cases if possible
 - [ ] Support for Model files:
   - [x] rbxmx (xml)
   - [ ] rbxm (binary)
@@ -77,7 +77,7 @@ The maintainers do not support or condone misuse of this software and are not re
   - [x] Compound Operators
   - [x] Avoid using `next`, `ipairs` & `pairs`
   - [x] ~~Interpolated strings instead of concat~~ Slower
-  - [ ] Type-checking (😩🙀)
+  - [x] Type-checking
   - [ ] ~~`if-then-else` expressions~~ No reason to
   - [ ] Floor division
 
@@ -104,7 +104,7 @@ The maintainers do not support or condone misuse of this software and are not re
   * [ ] Binary (rbxl/rbxm)
 - [x] ~~Remove buffersize, savebuffer & so on for sake of performance by concatenating <Item> strings to total string then writing it to file (no extra steps like table.concat)~~ table.concat proved faster in the case of huge amount of concatenations
   - Test table.concat vs string ..= with a full buffer (this benchmark differs per usecase)
-- [ ] Add Option to restart saveinstance from the point that it crashed on (perhaps by skipping)
+- [x] Add Option to restart saveinstance from the point that it crashed on (perhaps by skipping)
 - [ ] Maybe modes should do more than just determining the list of instances to save, like changing IgnoreDefaultProperties to false if mode is "full" for example
 - [x] Add Lua & Luau versions instead of merged (WARNING: LUAU MIGHT BE MORE UPDATED THAN LUA VERSION, lua version exists just for the sake of old & bad tools, ask devs of your tools to support luau as its latest & greatest)
 - [x] ~~Add Support for multiple Instances to be saved as a model~~ IsModel = true & ExtraInstances
