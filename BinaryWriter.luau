@@ -32,18 +32,28 @@ local function interleave_u32_array(numbers: {number}): string
 	if count == 0 then return "" end
 	
 	local b = buffer.create(count * 4)
+	local last_val = 0 -- PENYIMPAN ANGKA SEBELUMNYA (Buat Delta Encoding)
+	
 	for i, num in numbers do
 		local idx = i - 1
-		local x = num
+		
+		-- 1. DELTA ENCODING (Cari selisih angka sekarang sama sebelumnya)
+		local delta = num - last_val
+		last_val = num
+		
+		-- 2. ZIGZAG TRANSFORM (Wajib dari Roblox)
+		local x = delta
 		if x < 0 then x = x + 4294967296 end
 		local sign = bit32.arshift(x, 31)
 		local z = bit32.bxor(bit32.lshift(x, 1), sign)
 		
+		-- 3. PECAH JADI 4 BYTE
 		local b1 = bit32.band(bit32.rshift(z, 24), 0xFF)
 		local b2 = bit32.band(bit32.rshift(z, 16), 0xFF)
 		local b3 = bit32.band(bit32.rshift(z, 8), 0xFF)
 		local b4 = bit32.band(z, 0xFF)
 		
+		-- 4. INTERLEAVING (Tulis menyilang)
 		buffer.writeu8(b, idx, b1)
 		buffer.writeu8(b, count + idx, b2)
 		buffer.writeu8(b, (count * 2) + idx, b3)
