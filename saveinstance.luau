@@ -707,15 +707,12 @@ XML_Descriptors = {
 	--------------------------------------------------------------
 	--------------------------------------------------------------
 	--------------------------------------------------------------
-	-- AssetContentMap = function(raw) return "[]" end,  AssetContentMapSerializationEnabled	& VoxelGridNew5_PlaceFilter	FFlags; https://github.com/MarioMaster9/rbxl/blob/master/util/BinaryChunk.py#L298
 	Axes = function(raw: Axes): string
 		return "<axes>" .. __COUNT_BITS(raw.X, raw.Y, raw.Z) .. "</axes>"
 	end,
-
 	BinaryString = function(raw: string): string 
 		return raw == "" and "" or base64encode(raw)
 	end,
-
 	BrickColor = function(raw: BrickColor): number
 		return raw.Number 
 	end,
@@ -786,11 +783,6 @@ XML_Descriptors = {
 		local __NORMALIZE_RANGE = XML_Descriptors.__NORMALIZE_RANGE
 		return __NORMALIZE_RANGE(raw.Min) .. " " .. __NORMALIZE_RANGE(raw.Max) 
 	end,
-	NetAssetRef = nil :: any,
-	NumberRange = function(raw: NumberRange): string 
-		local __NORMALIZE_RANGE = XML_Descriptors.__NORMALIZE_RANGE
-		return __NORMALIZE_RANGE(raw.Min) .. " " .. __NORMALIZE_RANGE(raw.Max) 
-	end,
 	NumberSequence = nil :: any,
 	NumberSequenceKeypoint = function(keypoint: NumberSequenceKeypoint): string
 		local __NORMALIZE_RANGE = XML_Descriptors.__NORMALIZE_RANGE
@@ -802,19 +794,6 @@ XML_Descriptors = {
 			.. __NORMALIZE_RANGE(keypoint.Envelope)
 			.. " "
 	end,
-	-- Path2DControlPoint = function(raw)  -- ? Not sure
-	-- 	local udim2 = XML_Descriptors.UDim2
-	-- 	return "<Position>"
-	-- 		.. udim2(raw.Position)
-	-- 		.. "</Position>"
-	-- 		.. "<LeftTangent>"
-	-- 		.. udim2(raw.LeftTangent)
-	-- 		.. "</LeftTangent>"
-	-- 		.. "<RightTangent>"
-	-- 		.. udim2(raw.RightTangent)
-	-- 		.. "</RightTangent>"
-	-- end,
-
 	PhysicalProperties = function(raw: PhysicalProperties?): any
 		local CustomPhysics = "<CustomPhysics>" .. XML_Descriptors.bool(raw and true or false) .. "</CustomPhysics>"
 
@@ -822,7 +801,6 @@ XML_Descriptors = {
 				and CustomPhysics .. "<Density>" .. raw.Density .. "</Density><Friction>" .. raw.Friction .. "</Friction><Elasticity>" .. raw.Elasticity .. "</Elasticity><FrictionWeight>" .. raw.FrictionWeight .. "</FrictionWeight><ElasticityWeight>" .. raw.ElasticityWeight .. "</ElasticityWeight><AcousticAbsorption>" .. raw.AcousticAbsorption .. "</AcousticAbsorption>"
 			or CustomPhysics
 	end,
-	-- ProtectedString = function(raw) return tostring(raw), "ProtectedString" end,
 	Ray = function(raw: Ray): string
 		local vector3 = XML_Descriptors.Vector3
 		return "<origin>" .. vector3(raw.Origin) .. "</origin><direction>" .. vector3(raw.Direction) .. "</direction>"
@@ -842,19 +820,6 @@ XML_Descriptors = {
 	Region3int16 = function(raw: Region3int16): string 
 		return XML_Descriptors.__MINMAX(raw.Min, raw.Max, XML_Descriptors.Vector3int16)
 	end,
-
-	-- ReplicationPV = function(raw) -- ? Not sure yet
-	-- 	local vector3 = XML_Descriptors.Vector3
-
-	-- 	return "<RotationalVelocity>"
-	-- 		.. vector3(raw.RotationalVelocity)
-	-- 		.. "</RotationalVelocity><LinearVelocity>"
-	-- 		.. vector3(raw.LinearVelocity)
-	-- 		.. "</LinearVelocity><Position>"
-	-- 		.. XML_Descriptors.CFrame(raw.Position)
-	-- 		.. "</Position>"
-	-- end,
-
 	SharedString = function(raw: string): string
 		return SharedStrings[XML_Descriptors.BinaryString(raw)]
 	end,
@@ -864,25 +829,6 @@ XML_Descriptors = {
 		end
 		return __COUNT_CAPABILITY_BITS(raw)
 	end,
-	-- SystemAddress = function(raw) return raw end, -- PeerId? systemAddress as a string in the format "IP|Port", "|" being portDelineator, should not be '.', ':', '%', '-', '/', a number, or a-f  -- ? Not sure (binaryAddress)
-	-- TweenInfo = function(raw) -- ? Not sure
-	-- 	local __NORMALIZE_NUMBER = XML_Descriptors.__NORMALIZE_NUMBER
-	-- 	local EnumItem = XML_Descriptors.EnumItem
-
-	-- 	return "<Time>"
-	-- 		.. __NORMALIZE_NUMBER(raw.Time)
-	-- 		.. "</Time><DelayTime>"
-	-- 		.. __NORMALIZE_NUMBER(raw.DelayTime)
-	-- 		.. "</DelayTime><RepeatCount>"
-	-- 		.. __NORMALIZE_NUMBER(raw.RepeatCount)
-	-- 		.. "</RepeatCount><Reverses>"
-	-- 		.. XML_Descriptors.bool(raw.Reverses)
-	-- 		.. "</Reverses><EasingDirection>"
-	-- 		.. enum(raw.EasingDirection)
-	-- 		.. "</EasingDirection><EasingStyle>"
-	-- 		.. enum(raw.EasingStyle)
-	-- 		.. "</EasingStyle>"
-	-- end,
 	UDim = function(raw: UDim): string
 		return "<S>" .. raw.Scale .. "</S><O>" .. raw.Offset .. "</O>"
 	end,
@@ -890,15 +836,9 @@ XML_Descriptors = {
 		local X, Y = raw.X, raw.Y
 		return "<XS>" .. X.Scale .. "</XS><XO>" .. X.Offset .. "</XO><YS>" .. Y.Scale .. "</YS><YO>" .. Y.Offset .. "</YO>"
 	end,
-
 	UniqueId = function(raw: string): string
 		return string.gsub(raw, "-", "") 
 	end,
-
-	-- User = function(raw)
-	-- 	return raw:ToString() -- ? not sure yet
-	-- end,
-
 	Vector2 = function(raw: Vector2): string
 		return XML_Descriptors.__VECTOR(raw.X, raw.Y)
 	end,
@@ -921,23 +861,11 @@ XML_Descriptors = {
 	end,
 }
 
-	--------------------------------------------------------------
-	-----------%localappdata%/Roblox/GlobalSettings_13.xml--------
-	-----------------------settings().Studio----------------------
-	--------------------------------------------------------------
-	-- QDir = function(raw) -- ? Not sure
-	-- 	return raw
-	-- end,
-	-- QFont = function(raw) -- ? Not sure
-	-- 	return raw
-	-- end,
-}
-
 do -- Sequences
 	XML_Descriptors.NumberSequence = XML_Descriptors.__construct_Sequence(XML_Descriptors.NumberSequenceKeypoint)
-
 	XML_Descriptors.ColorSequence = XML_Descriptors.__construct_Sequence(XML_Descriptors.ColorSequenceKeypoint)
 end
+
 
 for descriptorName, redirectName in
 	{
