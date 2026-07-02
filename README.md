@@ -6,12 +6,18 @@
 # Loadstring
 
 ```lua
-local Params = {
- RepoURL = "https://raw.githubusercontent.com/luau/UniversalSynSaveInstance/main/",
- SSI = "saveinstance",
-}
-local synsaveinstance = loadstring(game:HttpGet(Params.RepoURL .. Params.SSI .. ".luau", true), Params.SSI)()
-local Options = {} -- Documentation here https://luau.github.io/UniversalSynSaveInstance/api/SynSaveInstance
+local RepoURL = "https://raw.githubusercontent.com/Gaeuul/UniversalSynSaveInstance/main/"
+local SSI = "saveinstance"
+
+local synsaveinstance = loadstring(game:HttpGet(RepoURL .. SSI .. ".luau", true), SSI)()
+
+local Options = {
+    Binary = true,
+    SafeMode = false,  
+    BoostFPS = false,     
+    ShowStatus = true
+} 
+
 synsaveinstance(Options)
 ```
 
@@ -40,22 +46,6 @@ The maintainers do not support or condone misuse of this software and are not re
 > Important part about this saveinstance is that it doesn't modify game state, which helps maintain stability and compatibility.<br />
 > You can also enable the `SafeMode` option to improve compatibility and ensure more reliable saving across a wide range of experiences.<br /><br /> You can read more about it here [Documentation]
 > If this script is helpful to you, please click `⭐ Star` in the upper right corner of the page to support it, thank you!
-
-# Documentation
-
-[Documentation]
-
-# 💖 Support Us & Our Work
-
-<a href='https://ko-fi.com/M4M1JNH5G' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi2.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' title='KO-FI' /></a>
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/M4M1JNH5G "KO-FI")
-<br />
-[![ko-fi](https://user-images.githubusercontent.com/95628489/231759262-25661006-b7ca-4967-a79d-2b465cd9575a.png)](https://ko-fi.com/M4M1JNH5G "KO-FI QR-CODE")
-
-# DISCORD SERVER:<br />
-
-<https://discord.com/invite/wx4ThpAsmw> **/** <https://discord.gg/wx4ThpAsmw><br />
-[<img src="https://discordapp.com/api/guilds/1022465460517740654/widget.png?style=banner2" alt="Our Official Discord Server!"></img>](https://discord.com/invite/wx4ThpAsmw)<br />
 
 # TO-DOs
 
