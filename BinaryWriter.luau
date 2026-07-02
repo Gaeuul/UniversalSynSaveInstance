@@ -120,29 +120,27 @@ local function build_PROP_Header(class_index: number, prop_name_idx: number, pro
 	return write_chunk("PROP", buffer.tostring(b) .. data)
 end
 
--- [RAHASIA TERBONGKAR]: String Length MUST be interleaved Big-Endian (NO ZIGZAG)
+-- [SESUAI DOKUMENTASI]: "They are stored in sequence without any modification" (TIDAK BOLEH INTERLEAVE!)
 local function build_PROP_String(class_index: number, prop_name_idx: number, values: {string}): string
 	local count = #values
-	local lengths = table.create(count)
-	local concat = table.create(count)
+	local b_len = 0
 	for i = 1, count do
-		local str = values[i]
-		lengths[i] = #str
-		concat[i] = str
+		b_len += 4 + #values[i]
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 1, interleave_u32(lengths) .. table.concat(concat))
-end
 
-local function build_PROP_ProtectedString(class_index: number, prop_name_idx: number, values: {string}): string
-	local count = #values
-	local lengths = table.create(count)
-	local concat = table.create(count)
+	local b = buffer.create(b_len)
+	local offset = 0
 	for i = 1, count do
 		local str = values[i]
-		lengths[i] = #str
-		concat[i] = str
+		local slen = #str
+		buffer.writeu32(b, offset, slen) -- Nulis Panjang Angka Asli (Murni)
+		offset += 4
+		buffer.writestring(b, offset, str) -- Nulis Huruf Berurutan
+		offset += slen
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 32, interleave_u32(lengths) .. table.concat(concat))
+
+	-- Type ID wajib 1 (berlaku buat semua teks termasuk Source Code Script)
+	return build_PROP_Header(class_index, prop_name_idx, 1, buffer.tostring(b))
 end
 
 local function build_PROP_Bool(class_index: number, prop_name_idx: number, values: {boolean}): string
@@ -173,7 +171,7 @@ local function build_PROP_UDim2(class_index: number, prop_name_idx: number, valu
 		oX[i] = v.X.Offset
 		oY[i] = v.Y.Offset
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 10, interleave_u32(sX) .. interleave_u32(sY) .. interleave_zigzag(oX) .. interleave_zigzag(oY))
+	return build_PROP_Header(class_index, prop_name_idx, 7, interleave_u32(sX) .. interleave_u32(sY) .. interleave_zigzag(oX) .. interleave_zigzag(oY))
 end
 
 local function build_PROP_BrickColor(class_index: number, prop_name_idx: number, values: {BrickColor}): string
@@ -182,7 +180,7 @@ local function build_PROP_BrickColor(class_index: number, prop_name_idx: number,
 	for i = 1, count do
 		ints[i] = values[i].Number
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 14, interleave_u32(ints))
+	return build_PROP_Header(class_index, prop_name_idx, 11, interleave_u32(ints))
 end
 
 local function build_PROP_Color3(class_index: number, prop_name_idx: number, values: {Color3}): string
@@ -194,7 +192,7 @@ local function build_PROP_Color3(class_index: number, prop_name_idx: number, val
 		g[i] = float_transform(v.G)
 		b[i] = float_transform(v.B)
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 15, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b))
+	return build_PROP_Header(class_index, prop_name_idx, 12, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b))
 end
 
 local function build_PROP_Vector2(class_index: number, prop_name_idx: number, values: {Vector2}): string
@@ -205,7 +203,7 @@ local function build_PROP_Vector2(class_index: number, prop_name_idx: number, va
 		x[i] = float_transform(v.X)
 		y[i] = float_transform(v.Y)
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 16, interleave_u32(x) .. interleave_u32(y))
+	return build_PROP_Header(class_index, prop_name_idx, 13, interleave_u32(x) .. interleave_u32(y))
 end
 
 local function build_PROP_Vector3(class_index: number, prop_name_idx: number, values: {Vector3}): string
@@ -217,7 +215,7 @@ local function build_PROP_Vector3(class_index: number, prop_name_idx: number, va
 		y[i] = float_transform(v.Y)
 		z[i] = float_transform(v.Z)
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 17, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z))
+	return build_PROP_Header(class_index, prop_name_idx, 14, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z))
 end
 
 local function build_PROP_CFrame(class_index: number, prop_name_idx: number, values: {CFrame}): string
@@ -241,7 +239,7 @@ local function build_PROP_CFrame(class_index: number, prop_name_idx: number, val
 		.. interleave_u32(r10) .. interleave_u32(r11) .. interleave_u32(r12)
 		.. interleave_u32(r20) .. interleave_u32(r21) .. interleave_u32(r22)
 		.. interleave_u32(px) .. interleave_u32(py) .. interleave_u32(pz)
-	return build_PROP_Header(class_index, prop_name_idx, 20, data)
+	return build_PROP_Header(class_index, prop_name_idx, 16, data)
 end
 
 local function build_PROP_Enum(class_index: number, prop_name_idx: number, values: {any}): string
@@ -251,7 +249,7 @@ local function build_PROP_Enum(class_index: number, prop_name_idx: number, value
 		local v = values[i]
 		ints[i] = typeof(v) == "EnumItem" and v.Value or 0
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 21, interleave_u32(ints))
+	return build_PROP_Header(class_index, prop_name_idx, 18, interleave_u32(ints))
 end
 
 local function build_PROP_Color3uint8(class_index: number, prop_name_idx: number, values: {Color3}): string
@@ -263,7 +261,8 @@ local function build_PROP_Color3uint8(class_index: number, prop_name_idx: number
 		buffer.writeu8(b, count + (i - 1), math.round(v.G * 255))
 		buffer.writeu8(b, (count * 2) + (i - 1), math.round(v.B * 255))
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 29, buffer.tostring(b))
+	-- Type 26 is the Standard ID for Color3uint8
+	return build_PROP_Header(class_index, prop_name_idx, 26, buffer.tostring(b))
 end
 
 -- ==========================================
@@ -273,7 +272,7 @@ local TypeBuilders = {
 	["string"] = build_PROP_String,
 	["Content"] = build_PROP_String,
 	["BinaryString"] = build_PROP_String,
-	["ProtectedString"] = build_PROP_ProtectedString,
+	["ProtectedString"] = build_PROP_String, -- DIBACA SEBAGAI STRING BIASA (TIDAK ADA TYPE ID KHUSUS)
 	["bool"] = build_PROP_Bool,
 	["int"] = build_PROP_Int,
 	["float"] = build_PROP_Float,
