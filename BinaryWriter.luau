@@ -22,13 +22,13 @@ local function write_chunk(chunk_name: string, data: string): string
 end
 
 -- ==========================================
--- HELPER MATEMATIKA (Strict Sequential)
+-- HELPER MATEMATIKA
 -- ==========================================
 local function interleave_u32(numbers: {number}): string
 	local count = #numbers
 	if count == 0 then return "" end
 	local b = buffer.create(count * 4)
-	for i = 1, count do
+	for i = 1, count do 
 		local z = numbers[i]
 		local idx = i - 1
 		local b1 = bit32.band(bit32.rshift(z, 24), 0xFF)
@@ -47,7 +47,7 @@ local function interleave_zigzag(numbers: {number}): string
 	local count = #numbers
 	local transformed = table.create(count)
 	local last_val = 0
-	for i = 1, count do 
+	for i = 1, count do
 		local num = numbers[i]
 		local delta = num - last_val
 		last_val = num
@@ -69,9 +69,8 @@ local function float_transform(f: number): number
 end
 
 -- ==========================================
--- CHUNK BUILDERS (Standar Emas Roblox)
+-- CHUNK BUILDERS
 -- ==========================================
--- 1. STR (String Dictionary)
 local function build_STR(strings: {string}): string
 	local count = #strings
 	local b_len = 8
@@ -80,8 +79,8 @@ local function build_STR(strings: {string}): string
 	end
 
 	local b = buffer.create(b_len)
-	buffer.writeu32(b, 0, 0) -- Version
-	buffer.writeu32(b, 4, count) -- Jumlah Kamus
+	buffer.writeu32(b, 0, 0) 
+	buffer.writeu32(b, 4, count)
 
 	local offset = 8
 	for i = 1, count do
@@ -96,18 +95,16 @@ local function build_STR(strings: {string}): string
 	return write_chunk("STR\0", buffer.tostring(b))
 end
 
--- 2. INST (Instance Daftar)
 local function build_INST(class_index: number, class_name_idx: number, is_service: boolean, instance_ids: {number}): string
 	local count = #instance_ids
 	local b = buffer.create(13)
 	buffer.writeu32(b, 0, class_index)
-	buffer.writeu32(b, 4, class_name_idx) -- PAKE ID KAMUS!
+	buffer.writeu32(b, 4, class_name_idx)
 	buffer.writeu8(b, 8, is_service and 1 or 0)
 	buffer.writeu32(b, 9, count)
 	return write_chunk("INST", buffer.tostring(b) .. interleave_zigzag(instance_ids))
 end
 
--- 3. PRNT (Silsilah Parent-Child)
 local function build_PRNT(child_ids: {number}, parent_ids: {number}): string
 	local b = buffer.create(5)
 	buffer.writeu8(b, 0, 0) 
@@ -115,24 +112,25 @@ local function build_PRNT(child_ids: {number}, parent_ids: {number}): string
 	return write_chunk("PRNT", buffer.tostring(b) .. interleave_zigzag(child_ids) .. interleave_zigzag(parent_ids))
 end
 
--- 4. PROP (Properti Dinamis)
 local function build_PROP_Header(class_index: number, prop_name_idx: number, prop_type: number, data: string): string
 	local b = buffer.create(9)
 	buffer.writeu32(b, 0, class_index)
-	buffer.writeu32(b, 4, prop_name_idx) -- PAKE ID KAMUS!
+	buffer.writeu32(b, 4, prop_name_idx) 
 	buffer.writeu8(b, 8, prop_type)
 	return write_chunk("PROP", buffer.tostring(b) .. data)
 end
 
 local function build_PROP_String(class_index: number, prop_name_idx: number, values: {string}): string
 	local count = #values
-	local lengths, concat = table.create(count), table.create(count)
+	local lengths_b = buffer.create(count * 4)
+	local concat = table.create(count)
 	for i = 1, count do
 		local str = values[i]
-		lengths[i] = #str
+		-- [RAHASIA FIX ERROR 500MB]: String Length harus murni Little-Endian u32, BUKAN ZigZag!
+		buffer.writeu32(lengths_b, (i - 1) * 4, #str)
 		concat[i] = str
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 1, interleave_zigzag(lengths) .. table.concat(concat))
+	return build_PROP_Header(class_index, prop_name_idx, 1, buffer.tostring(lengths_b) .. table.concat(concat))
 end
 
 local function build_PROP_Bool(class_index: number, prop_name_idx: number, values: {boolean}): string
@@ -153,6 +151,17 @@ local function build_PROP_Float(class_index: number, prop_name_idx: number, valu
 	return build_PROP_Header(class_index, prop_name_idx, 4, interleave_u32(u32s))
 end
 
+local function build_PROP_Vector2(class_index: number, prop_name_idx: number, values: {Vector2}): string
+	local count = #values
+	local x, y = table.create(count), table.create(count)
+	for i = 1, count do
+		local v = values[i]
+		x[i] = float_transform(v.X)
+		y[i] = float_transform(v.Y)
+	end
+	return build_PROP_Header(class_index, prop_name_idx, 13, interleave_u32(x) .. interleave_u32(y))
+end
+
 local function build_PROP_Vector3(class_index: number, prop_name_idx: number, values: {Vector3}): string
 	local count = #values
 	local x, y, z = table.create(count), table.create(count), table.create(count)
@@ -163,6 +172,15 @@ local function build_PROP_Vector3(class_index: number, prop_name_idx: number, va
 		z[i] = float_transform(v.Z)
 	end
 	return build_PROP_Header(class_index, prop_name_idx, 14, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z))
+end
+
+local function build_PROP_BrickColor(class_index: number, prop_name_idx: number, values: {BrickColor}): string
+	local count = #values
+	local ints = table.create(count)
+	for i = 1, count do
+		ints[i] = values[i].Number
+	end
+	return build_PROP_Header(class_index, prop_name_idx, 11, interleave_u32(ints))
 end
 
 local function build_PROP_Color3(class_index: number, prop_name_idx: number, values: {Color3}): string
@@ -220,20 +238,21 @@ local function build_PROP_Enum(class_index: number, prop_name_idx: number, value
 		local v = values[i]
 		ints[i] = typeof(v) == "EnumItem" and v.Value or 0
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 18, interleave_zigzag(ints))
+	-- [RAHASIA UI FIX]: Enum juga tidak boleh pake ZigZag!
+	return build_PROP_Header(class_index, prop_name_idx, 18, interleave_u32(ints))
 end
 
 local function build_PROP_UDim2(class_index: number, prop_name_idx: number, values: {UDim2}): string
 	local count = #values
-	local sX, oX, sY, oY = table.create(count), table.create(count), table.create(count), table.create(count)
+	local sX, sY, oX, oY = table.create(count), table.create(count), table.create(count), table.create(count)
 	for i = 1, count do
 		local v = values[i]
 		sX[i] = float_transform(v.X.Scale)
-		oX[i] = v.X.Offset
 		sY[i] = float_transform(v.Y.Scale)
+		oX[i] = v.X.Offset
 		oY[i] = v.Y.Offset
 	end
-	return build_PROP_Header(class_index, prop_name_idx, 7, interleave_u32(sX) .. interleave_zigzag(oX) .. interleave_u32(sY) .. interleave_zigzag(oY))
+	return build_PROP_Header(class_index, prop_name_idx, 7, interleave_u32(sX) .. interleave_u32(sY) .. interleave_zigzag(oX) .. interleave_zigzag(oY))
 end
 
 -- ==========================================
@@ -249,9 +268,11 @@ local TypeBuilders = {
 	["int64"] = build_PROP_Int,
 	["float"] = build_PROP_Float,
 	["double"] = build_PROP_Float,
+	["Vector2"] = build_PROP_Vector2,
 	["Vector3"] = build_PROP_Vector3,
 	["Color3"] = build_PROP_Color3,
 	["Color3uint8"] = build_PROP_Color3uint8,
+	["BrickColor"] = build_PROP_BrickColor,
 	["CFrame"] = build_PROP_CFrame,
 	["Enum"] = build_PROP_Enum,
 	["UDim2"] = build_PROP_UDim2,
@@ -278,8 +299,10 @@ local function extract_prop(instances, propName, valueType)
 		else
 			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" or valueType == "ProtectedString" then values[i] = ""
 			elseif valueType == "bool" then values[i] = false
+			elseif valueType == "Vector2" then values[i] = Vector2.new()
 			elseif valueType == "Vector3" then values[i] = Vector3.new()
 			elseif valueType == "Color3" or valueType == "Color3uint8" then values[i] = Color3.new()
+			elseif valueType == "BrickColor" then values[i] = BrickColor.new("Medium stone grey")
 			elseif valueType == "CFrame" then values[i] = CFrame.new()
 			elseif valueType == "int" or valueType == "float" or valueType == "double" or valueType == "int64" then values[i] = 0
 			elseif valueType == "Enum" then values[i] = 0
@@ -293,7 +316,6 @@ end
 function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassList: any): string
 	local chunks = { MAGIC_HEADER }
 	
-	-- KAMUS TEKS (Wajib Dibuat Paling Pertama)
 	local strings_array = {}
 	local string_to_id = {}
 	local function get_string_id(str: string): number
@@ -310,13 +332,12 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 
 	for i = 1, #instances do instance_to_ref[instances[i]] = i - 1 end
 
-	-- Pass 1: Mapping Instance & Kumpulin Nama Class
 	for i = 1, #instances do
 		local inst = instances[i]
 		local class_name = inst.ClassName
 		local ref_id = instance_to_ref[inst]
 		
-		get_string_id(class_name) -- Daftarin Class Name ke Kamus
+		get_string_id(class_name) 
 		
 		if not class_groups[class_name] then class_groups[class_name] = {} end
 		table.insert(class_groups[class_name], ref_id)
@@ -333,9 +354,8 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 	local class_list = {}
 	for class_name, _ in class_groups do table.insert(class_list, class_name) end
 	
-	-- Pass 2: Kumpulin Nama Properti Sebelum Bikin Kamus
 	local class_props_map = {}
-	get_string_id("Name") -- Wajib ada
+	get_string_id("Name") 
 	
 	for i = 1, #class_list do
 		local class_name = class_list[i]
@@ -349,7 +369,7 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 					if not seen_props[prop.Name] then
 						seen_props[prop.Name] = true
 						table.insert(props_to_save, prop)
-						get_string_id(prop.Name) -- Daftarin Property Name ke Kamus
+						get_string_id(prop.Name) 
 					end
 				end
 			end
@@ -358,16 +378,13 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		class_props_map[class_name] = props_to_save
 	end
 
-	-- 1. TULIS GLOBAL HEADER
 	local f_header = buffer.create(16)
 	buffer.writeu32(f_header, 0, #class_list)
 	buffer.writeu32(f_header, 4, #instances)
 	table.insert(chunks, buffer.tostring(f_header))
 
-	-- 2. TULIS KAMUS TEKS (STR\0) -> INI YANG BIKIN FIX ERROR 400MB!
 	table.insert(chunks, build_STR(strings_array))
 
-	-- 3. TULIS INST CHUNKS
 	local class_index_map = {}
 	local class_index = 0
 	for i = 1, #class_list do
@@ -379,7 +396,6 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		class_index += 1
 	end
 
-	-- 4. TULIS PROP CHUNKS (EKSTRAKSI PROPERTI DINAMIS)
 	for i = 1, #class_list do
 		local class_name = class_list[i]
 		local ids = class_groups[class_name]
@@ -414,12 +430,10 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		end
 	end
 
-	-- 5. TULIS PRNT CHUNK
 	if #child_ids > 0 then
 		table.insert(chunks, build_PRNT(child_ids, parent_ids))
 	end
 
-	-- 6. TULIS END
 	table.insert(chunks, write_chunk("END\0", ""))
 	return table.concat(chunks)
 end
