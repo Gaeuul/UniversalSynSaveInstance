@@ -195,8 +195,14 @@ local function extract_prop(instances, propName, valueType)
 	local has_data = false
 	for i, inst in instances do
 		local ok, val = pcall(function() return inst[propName] end)
+		
 		if ok and val ~= nil then
-			values[i] = val
+			-- [FIX ERROR CONTENT]: Kalau tipe datanya Content/String, paksa jadi Teks Murni pakai tostring!
+			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" then
+				values[i] = type(val) == "string" and val or tostring(val)
+			else
+				values[i] = val
+			end
 			has_data = true
 		else
 			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" then values[i] = ""
@@ -258,7 +264,6 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		for _, id in ids do table.insert(class_instances, instances[id + 1]) end
 		local c_idx = class_index_map[class_name]
 
-		-- Kumpulkan semua jenis properti khusus untuk class ini (dan superclass-nya)
 		local props_to_save = {}
 		local layer = ClassList and ClassList[class_name]
 		while layer do
@@ -268,11 +273,9 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 			layer = ClassList[layer.Superclass]
 		end
 
-		-- Wajib nyatet "Nama" objek duluan
 		local _, name_vals = extract_prop(class_instances, "Name", "string")
 		table.insert(chunks, build_PROP_String(c_idx, "Name", name_vals))
 
-		-- Tulis sisa propertinya berdasarkan kamus otomatis
 		for _, prop in props_to_save do
 			local pName = prop.Name
 			local pType = prop.ValueType
