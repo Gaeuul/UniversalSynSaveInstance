@@ -3887,7 +3887,8 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 			
 			if ok and type(result) == "table" then
 				BinaryWriter = result
-				local binaryData = BinaryWriter.Serialize(BinaryInstances_List, IsModel)
+				-- [UPDATE]: Kita kirim ClassList (Kamus API) ke mesin Binary!
+				local binaryData = BinaryWriter.Serialize(BinaryInstances_List, IsModel, ClassList)
 				
 				run_with_loading(
 					"Menulis File Binary (.rbxl)...",
