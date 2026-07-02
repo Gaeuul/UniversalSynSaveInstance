@@ -9,7 +9,7 @@ local MAGIC_HEADER = "<roblox!\x89\xff\x0d\x0a\x1a\x0a\x00\x00"
 
 local function write_chunk(chunk_name: string, data: string): string
 	local uncompressed_size = #data
-	local compressed_size = 0 -- Bypass LZ4 sementara
+	local compressed_size = 0 -- Bypass LZ4 sementara buat kestabilan
 
 	local b = buffer.create(16 + uncompressed_size)
 	buffer.writestring(b, 0, string.sub(chunk_name, 1, 4))
@@ -22,13 +22,14 @@ local function write_chunk(chunk_name: string, data: string): string
 end
 
 -- ==========================================
--- HELPER MATEMATIKA
+-- HELPER MATEMATIKA (Strict Sequential)
 -- ==========================================
 local function interleave_u32(numbers: {number}): string
 	local count = #numbers
 	if count == 0 then return "" end
 	local b = buffer.create(count * 4)
-	for i, z in numbers do
+	for i = 1, count do -- PAKSA URUTAN DISIPLIN
+		local z = numbers[i]
 		local idx = i - 1
 		local b1 = bit32.band(bit32.rshift(z, 24), 0xFF)
 		local b2 = bit32.band(bit32.rshift(z, 16), 0xFF)
@@ -43,9 +44,11 @@ local function interleave_u32(numbers: {number}): string
 end
 
 local function interleave_zigzag(numbers: {number}): string
-	local transformed = {}
+	local count = #numbers
+	local transformed = table.create(count)
 	local last_val = 0
-	for i, num in numbers do
+	for i = 1, count do -- PAKSA URUTAN DISIPLIN (Delta Encoding gak boleh acak!)
+		local num = numbers[i]
 		local delta = num - last_val
 		last_val = num
 		local x = delta
@@ -98,17 +101,20 @@ local function build_PROP_Header(class_index: number, prop_name: string, prop_ty
 end
 
 local function build_PROP_String(class_index: number, prop_name: string, values: {string}): string
-	local lengths, concat = {}, {}
-	for i, str in values do
+	local count = #values
+	local lengths, concat = table.create(count), table.create(count)
+	for i = 1, count do
+		local str = values[i]
 		lengths[i] = #str
-		table.insert(concat, str)
+		concat[i] = str
 	end
 	return build_PROP_Header(class_index, prop_name, 1, interleave_zigzag(lengths) .. table.concat(concat))
 end
 
 local function build_PROP_Bool(class_index: number, prop_name: string, values: {boolean}): string
-	local b = buffer.create(#values)
-	for i, val in values do buffer.writeu8(b, i - 1, val and 1 or 0) end
+	local count = #values
+	local b = buffer.create(count)
+	for i = 1, count do buffer.writeu8(b, i - 1, values[i] and 1 or 0) end
 	return build_PROP_Header(class_index, prop_name, 2, buffer.tostring(b))
 end
 
@@ -117,36 +123,57 @@ local function build_PROP_Int(class_index: number, prop_name: string, values: {n
 end
 
 local function build_PROP_Float(class_index: number, prop_name: string, values: {number}): string
-	local u32s = {}
-	for i, v in values do u32s[i] = float_transform(v) end
+	local count = #values
+	local u32s = table.create(count)
+	for i = 1, count do u32s[i] = float_transform(values[i]) end
 	return build_PROP_Header(class_index, prop_name, 4, interleave_u32(u32s))
 end
 
 local function build_PROP_Vector3(class_index: number, prop_name: string, values: {Vector3}): string
-	local x, y, z = {}, {}, {}
-	for i, v in values do
+	local count = #values
+	local x, y, z = table.create(count), table.create(count), table.create(count)
+	for i = 1, count do
+		local v = values[i]
 		x[i] = float_transform(v.X)
 		y[i] = float_transform(v.Y)
 		z[i] = float_transform(v.Z)
 	end
-	return build_PROP_Header(class_index, prop_name, 8, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z))
+	return build_PROP_Header(class_index, prop_name, 14, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z))
 end
 
 local function build_PROP_Color3(class_index: number, prop_name: string, values: {Color3}): string
-	local r, g, b = {}, {}, {}
-	for i, v in values do
+	local count = #values
+	local r, g, b = table.create(count), table.create(count), table.create(count)
+	for i = 1, count do
+		local v = values[i]
 		r[i] = float_transform(v.R)
 		g[i] = float_transform(v.G)
 		b[i] = float_transform(v.B)
 	end
-	return build_PROP_Header(class_index, prop_name, 11, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b))
+	return build_PROP_Header(class_index, prop_name, 12, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b))
+end
+
+local function build_PROP_Color3uint8(class_index: number, prop_name: string, values: {Color3}): string
+	local count = #values
+	local b = buffer.create(count * 3)
+	for i = 1, count do
+		local v = values[i]
+		buffer.writeu8(b, (i - 1), math.round(v.R * 255))
+		buffer.writeu8(b, count + (i - 1), math.round(v.G * 255))
+		buffer.writeu8(b, (count * 2) + (i - 1), math.round(v.B * 255))
+	end
+	return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b))
 end
 
 local function build_PROP_CFrame(class_index: number, prop_name: string, values: {CFrame}): string
-	local ids = buffer.create(#values)
-	local r00, r01, r02, r10, r11, r12, r20, r21, r22 = {}, {}, {}, {}, {}, {}, {}, {}, {}
-	local px, py, pz = {}, {}, {}
-	for i, cf in values do
+	local count = #values
+	local ids = buffer.create(count)
+	local r00, r01, r02 = table.create(count), table.create(count), table.create(count)
+	local r10, r11, r12 = table.create(count), table.create(count), table.create(count)
+	local r20, r21, r22 = table.create(count), table.create(count), table.create(count)
+	local px, py, pz = table.create(count), table.create(count), table.create(count)
+	for i = 1, count do
+		local cf = values[i]
 		buffer.writeu8(ids, i - 1, 0)
 		local x, y, z, r1, r2, r3, r4, r5, r6, r7, r8, r9 = cf:GetComponents()
 		px[i] = float_transform(x) py[i] = float_transform(y) pz[i] = float_transform(z)
@@ -163,9 +190,26 @@ local function build_PROP_CFrame(class_index: number, prop_name: string, values:
 end
 
 local function build_PROP_Enum(class_index: number, prop_name: string, values: {any}): string
-	local ints = {}
-	for i, v in values do ints[i] = typeof(v) == "EnumItem" and v.Value or 0 end
-	return build_PROP_Header(class_index, prop_name, 17, interleave_zigzag(ints))
+	local count = #values
+	local ints = table.create(count)
+	for i = 1, count do
+		local v = values[i]
+		ints[i] = typeof(v) == "EnumItem" and v.Value or 0
+	end
+	return build_PROP_Header(class_index, prop_name, 18, interleave_zigzag(ints))
+end
+
+local function build_PROP_UDim2(class_index: number, prop_name: string, values: {UDim2}): string
+	local count = #values
+	local sX, oX, sY, oY = table.create(count), table.create(count), table.create(count), table.create(count)
+	for i = 1, count do
+		local v = values[i]
+		sX[i] = float_transform(v.X.Scale)
+		oX[i] = v.X.Offset
+		sY[i] = float_transform(v.Y.Scale)
+		oY[i] = v.Y.Offset
+	end
+	return build_PROP_Header(class_index, prop_name, 7, interleave_u32(sX) .. interleave_zigzag(oX) .. interleave_u32(sY) .. interleave_zigzag(oY))
 end
 
 -- ==========================================
@@ -175,6 +219,7 @@ local TypeBuilders = {
 	["string"] = build_PROP_String,
 	["Content"] = build_PROP_String,
 	["BinaryString"] = build_PROP_String,
+	["ProtectedString"] = build_PROP_String,
 	["bool"] = build_PROP_Bool,
 	["int"] = build_PROP_Int,
 	["int64"] = build_PROP_Int,
@@ -182,36 +227,39 @@ local TypeBuilders = {
 	["double"] = build_PROP_Float,
 	["Vector3"] = build_PROP_Vector3,
 	["Color3"] = build_PROP_Color3,
-	["Color3uint8"] = build_PROP_Color3,
+	["Color3uint8"] = build_PROP_Color3uint8,
 	["CFrame"] = build_PROP_CFrame,
 	["Enum"] = build_PROP_Enum,
+	["UDim2"] = build_PROP_UDim2,
 }
 
 -- ==========================================
 -- MAIN ENCODER (JEMBATAN PROPERTI)
 -- ==========================================
 local function extract_prop(instances, propName, valueType)
-	local values = {}
+	local count = #instances
+	local values = table.create(count)
 	local has_data = false
-	for i, inst in instances do
+	for i = 1, count do
+		local inst = instances[i]
 		local ok, val = pcall(function() return inst[propName] end)
 		
 		if ok and val ~= nil then
-			-- [FIX ERROR CONTENT]: Kalau tipe datanya Content/String, paksa jadi Teks Murni pakai tostring!
-			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" then
+			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" or valueType == "ProtectedString" then
 				values[i] = type(val) == "string" and val or tostring(val)
 			else
 				values[i] = val
 			end
 			has_data = true
 		else
-			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" then values[i] = ""
+			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" or valueType == "ProtectedString" then values[i] = ""
 			elseif valueType == "bool" then values[i] = false
 			elseif valueType == "Vector3" then values[i] = Vector3.new()
 			elseif valueType == "Color3" or valueType == "Color3uint8" then values[i] = Color3.new()
 			elseif valueType == "CFrame" then values[i] = CFrame.new()
 			elseif valueType == "int" or valueType == "float" or valueType == "double" or valueType == "int64" then values[i] = 0
 			elseif valueType == "Enum" then values[i] = 0
+			elseif valueType == "UDim2" then values[i] = UDim2.new()
 			else values[i] = nil end
 		end
 	end
@@ -224,9 +272,10 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 	local child_ids, parent_ids = {}, {}
 	local instance_to_ref = {} 
 
-	for i, inst in instances do instance_to_ref[inst] = i - 1 end
+	for i = 1, #instances do instance_to_ref[instances[i]] = i - 1 end
 
-	for _, inst in instances do
+	for i = 1, #instances do
+		local inst = instances[i]
 		local class_name = inst.ClassName
 		local ref_id = instance_to_ref[inst]
 		
@@ -252,23 +301,37 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 
 	local class_index_map = {}
 	local class_index = 0
-	for _, class_name in class_list do
+	for i = 1, #class_list do
+		local class_name = class_list[i]
 		class_index_map[class_name] = class_index
 		table.insert(chunks, build_INST(class_index, class_name, false, class_groups[class_name]))
 		class_index += 1
 	end
 
 	-- EKSTRAKSI PROPERTI DINAMIS (NGAMBIL DARI API DUMP)
-	for class_name, ids in class_groups do
-		local class_instances = {}
-		for _, id in ids do table.insert(class_instances, instances[id + 1]) end
+	for i = 1, #class_list do
+		local class_name = class_list[i]
+		local ids = class_groups[class_name]
+		
+		local class_instances = table.create(#ids)
+		for j = 1, #ids do
+			class_instances[j] = instances[ids[j] + 1]
+		end
+		
 		local c_idx = class_index_map[class_name]
 
 		local props_to_save = {}
+		local seen_props = {}
 		local layer = ClassList and ClassList[class_name]
 		while layer do
-			for _, prop in layer.Properties do
-				table.insert(props_to_save, prop)
+			if layer.Properties then
+				for j = 1, #(layer.Properties) do
+					local prop = layer.Properties[j]
+					if not seen_props[prop.Name] then
+						seen_props[prop.Name] = true
+						table.insert(props_to_save, prop)
+					end
+				end
 			end
 			layer = ClassList[layer.Superclass]
 		end
@@ -276,7 +339,8 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		local _, name_vals = extract_prop(class_instances, "Name", "string")
 		table.insert(chunks, build_PROP_String(c_idx, "Name", name_vals))
 
-		for _, prop in props_to_save do
+		for j = 1, #props_to_save do
+			local prop = props_to_save[j]
 			local pName = prop.Name
 			local pType = prop.ValueType
 			
