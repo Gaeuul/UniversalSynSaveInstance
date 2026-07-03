@@ -385,6 +385,9 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 			local pType = prop.ValueType
 			
 			if pName == "Name" or pName == "Grip" then continue end
+			
+			if pName == "Color3" and pType == "Color3uint8" then pType = "Color3" end
+
 
 			local builder = TypeBuilders[pType]
 			if builder then
