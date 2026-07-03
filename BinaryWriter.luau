@@ -69,13 +69,12 @@ local function float_transform(f: number): number
 end
 
 -- ==========================================
--- CHUNK BUILDERS (100% SESUAI DOKUMEN LU)
+-- CHUNK BUILDERS
 -- ==========================================
 local function build_INST(class_index: number, class_name: string, is_service: boolean, instance_ids: {number}): string
 	local count = #instance_ids
 	local name_len = #class_name
 	
-	-- [FIX ALIGNMENT]: Nulis Teks secara utuh (Panjang + Huruf)
 	local b = buffer.create(13 + name_len)
 	buffer.writeu32(b, 0, class_index)
 	buffer.writeu32(b, 4, name_len)
@@ -96,7 +95,6 @@ end
 local function build_PROP_Header(class_index: number, prop_name: string, prop_type: number, data: string): string
 	local name_len = #prop_name
 	
-	-- [FIX ALIGNMENT]: Sama kayak INST, PROP juga pakai Teks Utuh
 	local b = buffer.create(9 + name_len)
 	buffer.writeu32(b, 0, class_index)
 	buffer.writeu32(b, 4, name_len)
@@ -107,14 +105,12 @@ local function build_PROP_Header(class_index: number, prop_name: string, prop_ty
 end
 
 -- ==========================================
--- PROPERTY VALUE BUILDERS
+-- PROPERTY VALUE BUILDERS (100% FIXED IDs!)
 -- ==========================================
 local function build_PROP_String(class_index: number, prop_name: string, values: {string}): string
 	local count = #values
 	local b_len = 0
-	for i = 1, count do
-		b_len += 4 + #values[i]
-	end
+	for i = 1, count do b_len += 4 + #values[i] end
 
 	local b = buffer.create(b_len)
 	local offset = 0
@@ -126,45 +122,25 @@ local function build_PROP_String(class_index: number, prop_name: string, values:
 		buffer.writestring(b, offset, str)
 		offset += slen
 	end
-	return build_PROP_Header(class_index, prop_name, 1, buffer.tostring(b))
-end
-
-local function build_PROP_ProtectedString(class_index: number, prop_name: string, values: {string}): string
-	local count = #values
-	local b_len = 0
-	for i = 1, count do
-		b_len += 4 + #values[i]
-	end
-
-	local b = buffer.create(b_len)
-	local offset = 0
-	for i = 1, count do
-		local str = values[i]
-		local slen = #str
-		buffer.writeu32(b, offset, slen)
-		offset += 4
-		buffer.writestring(b, offset, str)
-		offset += slen
-	end
-	return build_PROP_Header(class_index, prop_name, 32, buffer.tostring(b))
+	return build_PROP_Header(class_index, prop_name, 1, buffer.tostring(b)) -- Tipe 1: String
 end
 
 local function build_PROP_Bool(class_index: number, prop_name: string, values: {boolean}): string
 	local count = #values
 	local b = buffer.create(count)
 	for i = 1, count do buffer.writeu8(b, i - 1, values[i] and 1 or 0) end
-	return build_PROP_Header(class_index, prop_name, 2, buffer.tostring(b))
+	return build_PROP_Header(class_index, prop_name, 2, buffer.tostring(b)) -- Tipe 2: Bool
 end
 
 local function build_PROP_Int(class_index: number, prop_name: string, values: {number}): string
-	return build_PROP_Header(class_index, prop_name, 3, interleave_zigzag(values))
+	return build_PROP_Header(class_index, prop_name, 3, interleave_zigzag(values)) -- Tipe 3: Int32
 end
 
 local function build_PROP_Float(class_index: number, prop_name: string, values: {number}): string
 	local count = #values
 	local u32s = table.create(count)
 	for i = 1, count do u32s[i] = float_transform(values[i]) end
-	return build_PROP_Header(class_index, prop_name, 4, interleave_u32(u32s))
+	return build_PROP_Header(class_index, prop_name, 4, interleave_u32(u32s)) -- Tipe 4: Float
 end
 
 local function build_PROP_UDim2(class_index: number, prop_name: string, values: {UDim2}): string
@@ -177,16 +153,14 @@ local function build_PROP_UDim2(class_index: number, prop_name: string, values: 
 		oX[i] = v.X.Offset
 		oY[i] = v.Y.Offset
 	end
-	return build_PROP_Header(class_index, prop_name, 10, interleave_u32(sX) .. interleave_u32(sY) .. interleave_zigzag(oX) .. interleave_zigzag(oY))
+	return build_PROP_Header(class_index, prop_name, 7, interleave_u32(sX) .. interleave_u32(sY) .. interleave_zigzag(oX) .. interleave_zigzag(oY)) -- Tipe 7: UDim2
 end
 
 local function build_PROP_BrickColor(class_index: number, prop_name: string, values: {BrickColor}): string
 	local count = #values
 	local ints = table.create(count)
-	for i = 1, count do
-		ints[i] = values[i].Number
-	end
-	return build_PROP_Header(class_index, prop_name, 14, interleave_u32(ints))
+	for i = 1, count do ints[i] = values[i].Number end
+	return build_PROP_Header(class_index, prop_name, 11, interleave_u32(ints)) -- Tipe 11: BrickColor
 end
 
 local function build_PROP_Color3(class_index: number, prop_name: string, values: {Color3}): string
@@ -198,7 +172,7 @@ local function build_PROP_Color3(class_index: number, prop_name: string, values:
 		g[i] = float_transform(v.G)
 		b[i] = float_transform(v.B)
 	end
-	return build_PROP_Header(class_index, prop_name, 15, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b))
+	return build_PROP_Header(class_index, prop_name, 12, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b)) -- Tipe 12: Color3
 end
 
 local function build_PROP_Vector2(class_index: number, prop_name: string, values: {Vector2}): string
@@ -209,7 +183,7 @@ local function build_PROP_Vector2(class_index: number, prop_name: string, values
 		x[i] = float_transform(v.X)
 		y[i] = float_transform(v.Y)
 	end
-	return build_PROP_Header(class_index, prop_name, 16, interleave_u32(x) .. interleave_u32(y))
+	return build_PROP_Header(class_index, prop_name, 13, interleave_u32(x) .. interleave_u32(y)) -- Tipe 13: Vector2
 end
 
 local function build_PROP_Vector3(class_index: number, prop_name: string, values: {Vector3}): string
@@ -221,7 +195,7 @@ local function build_PROP_Vector3(class_index: number, prop_name: string, values
 		y[i] = float_transform(v.Y)
 		z[i] = float_transform(v.Z)
 	end
-	return build_PROP_Header(class_index, prop_name, 17, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z))
+	return build_PROP_Header(class_index, prop_name, 14, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z)) -- Tipe 14: Vector3
 end
 
 local function build_PROP_CFrame(class_index: number, prop_name: string, values: {CFrame}): string
@@ -245,7 +219,7 @@ local function build_PROP_CFrame(class_index: number, prop_name: string, values:
 		.. interleave_u32(r10) .. interleave_u32(r11) .. interleave_u32(r12)
 		.. interleave_u32(r20) .. interleave_u32(r21) .. interleave_u32(r22)
 		.. interleave_u32(px) .. interleave_u32(py) .. interleave_u32(pz)
-	return build_PROP_Header(class_index, prop_name, 20, data)
+	return build_PROP_Header(class_index, prop_name, 16, data) -- Tipe 16: CFrame
 end
 
 local function build_PROP_Enum(class_index: number, prop_name: string, values: {any}): string
@@ -255,7 +229,7 @@ local function build_PROP_Enum(class_index: number, prop_name: string, values: {
 		local v = values[i]
 		ints[i] = typeof(v) == "EnumItem" and v.Value or 0
 	end
-	return build_PROP_Header(class_index, prop_name, 21, interleave_u32(ints))
+	return build_PROP_Header(class_index, prop_name, 18, interleave_u32(ints)) -- Tipe 18: Enum
 end
 
 local function build_PROP_Color3uint8(class_index: number, prop_name: string, values: {Color3}): string
@@ -267,7 +241,7 @@ local function build_PROP_Color3uint8(class_index: number, prop_name: string, va
 		buffer.writeu8(b, count + (i - 1), math.round(v.G * 255))
 		buffer.writeu8(b, (count * 2) + (i - 1), math.round(v.B * 255))
 	end
-	return build_PROP_Header(class_index, prop_name, 29, buffer.tostring(b))
+	return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b)) -- Tipe 26: Color3uint8
 end
 
 -- ==========================================
@@ -277,7 +251,7 @@ local TypeBuilders = {
 	["string"] = build_PROP_String,
 	["Content"] = build_PROP_String,
 	["BinaryString"] = build_PROP_String,
-	["ProtectedString"] = build_PROP_ProtectedString,
+	["ProtectedString"] = build_PROP_String, 
 	["bool"] = build_PROP_Bool,
 	["int"] = build_PROP_Int,
 	["float"] = build_PROP_Float,
@@ -390,7 +364,6 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		local class_name = class_list[i]
 		class_index_map[class_name] = class_index
 		
-		-- [FIX]: Langsung pass class_name (String) BUKAN index
 		table.insert(chunks, build_INST(class_index, class_name, false, class_groups[class_name]))
 		class_index += 1
 	end
@@ -422,7 +395,6 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 			if builder then
 				local has_data, values = extract_prop(class_instances, pName, pType)
 				if has_data then
-					-- [FIX]: Langsung pass pName (String) BUKAN index
 					table.insert(chunks, builder(c_idx, pName, values))
 				end
 			end
