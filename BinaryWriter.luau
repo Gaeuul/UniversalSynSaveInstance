@@ -9,7 +9,7 @@ local MAGIC_HEADER = "<roblox!\x89\xff\x0d\x0a\x1a\x0a\x00\x00"
 
 local function write_chunk(chunk_name: string, data: string): string
 	local uncompressed_size = #data
-	local compressed_size = 0 -- Bypass LZ4 sementara buat kestabilan
+	local compressed_size = 0 -- Bypass LZ4
 
 	local b = buffer.create(16 + uncompressed_size)
 	buffer.writestring(b, 0, string.sub(chunk_name, 1, 4))
@@ -103,7 +103,7 @@ local function build_PROP_Header(class_index: number, prop_name: string, prop_ty
 end
 
 -- ==========================================
--- PROPERTY VALUE BUILDERS (ID 100% STANDAR ROBLOX)
+-- PROPERTY VALUE BUILDERS (ID 100% FIXED)
 -- ==========================================
 local function build_PROP_String(class_index: number, prop_name: string, values: {string}): string
 	local count = #values
@@ -120,25 +120,25 @@ local function build_PROP_String(class_index: number, prop_name: string, values:
 		buffer.writestring(b, offset, str)
 		offset += slen
 	end
-	return build_PROP_Header(class_index, prop_name, 1, buffer.tostring(b)) -- Tipe 1
+	return build_PROP_Header(class_index, prop_name, 1, buffer.tostring(b)) -- ID 1 (String)
 end
 
 local function build_PROP_Bool(class_index: number, prop_name: string, values: {boolean}): string
 	local count = #values
 	local b = buffer.create(count)
 	for i = 1, count do buffer.writeu8(b, i - 1, values[i] and 1 or 0) end
-	return build_PROP_Header(class_index, prop_name, 2, buffer.tostring(b)) -- Tipe 2
+	return build_PROP_Header(class_index, prop_name, 2, buffer.tostring(b)) -- ID 2 (Bool)
 end
 
 local function build_PROP_Int(class_index: number, prop_name: string, values: {number}): string
-	return build_PROP_Header(class_index, prop_name, 3, interleave_zigzag(values)) -- Tipe 3
+	return build_PROP_Header(class_index, prop_name, 3, interleave_zigzag(values)) -- ID 3 (Int)
 end
 
 local function build_PROP_Float(class_index: number, prop_name: string, values: {number}): string
 	local count = #values
 	local u32s = table.create(count)
 	for i = 1, count do u32s[i] = float_transform(values[i]) end
-	return build_PROP_Header(class_index, prop_name, 4, interleave_u32(u32s)) -- Tipe 4
+	return build_PROP_Header(class_index, prop_name, 4, interleave_u32(u32s)) -- ID 4 (Float)
 end
 
 local function build_PROP_UDim2(class_index: number, prop_name: string, values: {UDim2}): string
@@ -151,14 +151,14 @@ local function build_PROP_UDim2(class_index: number, prop_name: string, values: 
 		oX[i] = v.X.Offset
 		oY[i] = v.Y.Offset
 	end
-	return build_PROP_Header(class_index, prop_name, 7, interleave_u32(sX) .. interleave_u32(sY) .. interleave_zigzag(oX) .. interleave_zigzag(oY)) -- Tipe 7
+	return build_PROP_Header(class_index, prop_name, 7, interleave_u32(sX) .. interleave_u32(sY) .. interleave_zigzag(oX) .. interleave_zigzag(oY)) -- ID 7 (UDim2)
 end
 
 local function build_PROP_BrickColor(class_index: number, prop_name: string, values: {BrickColor}): string
 	local count = #values
 	local ints = table.create(count)
 	for i = 1, count do ints[i] = values[i].Number end
-	return build_PROP_Header(class_index, prop_name, 11, interleave_u32(ints)) -- Tipe 11
+	return build_PROP_Header(class_index, prop_name, 11, interleave_u32(ints)) -- ID 11 (BrickColor)
 end
 
 local function build_PROP_Color3(class_index: number, prop_name: string, values: {Color3}): string
@@ -170,7 +170,7 @@ local function build_PROP_Color3(class_index: number, prop_name: string, values:
 		g[i] = float_transform(v.G)
 		b[i] = float_transform(v.B)
 	end
-	return build_PROP_Header(class_index, prop_name, 12, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b)) -- Tipe 12
+	return build_PROP_Header(class_index, prop_name, 12, interleave_u32(r) .. interleave_u32(g) .. interleave_u32(b)) -- ID 12 (Color3)
 end
 
 local function build_PROP_Vector2(class_index: number, prop_name: string, values: {Vector2}): string
@@ -181,7 +181,7 @@ local function build_PROP_Vector2(class_index: number, prop_name: string, values
 		x[i] = float_transform(v.X)
 		y[i] = float_transform(v.Y)
 	end
-	return build_PROP_Header(class_index, prop_name, 13, interleave_u32(x) .. interleave_u32(y)) -- Tipe 13
+	return build_PROP_Header(class_index, prop_name, 13, interleave_u32(x) .. interleave_u32(y)) -- ID 13 (Vector2)
 end
 
 local function build_PROP_Vector3(class_index: number, prop_name: string, values: {Vector3}): string
@@ -193,7 +193,7 @@ local function build_PROP_Vector3(class_index: number, prop_name: string, values
 		y[i] = float_transform(v.Y)
 		z[i] = float_transform(v.Z)
 	end
-	return build_PROP_Header(class_index, prop_name, 14, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z)) -- Tipe 14
+	return build_PROP_Header(class_index, prop_name, 14, interleave_u32(x) .. interleave_u32(y) .. interleave_u32(z)) -- ID 14 (Vector3)
 end
 
 local function build_PROP_CFrame(class_index: number, prop_name: string, values: {CFrame}): string
@@ -217,7 +217,7 @@ local function build_PROP_CFrame(class_index: number, prop_name: string, values:
 		.. interleave_u32(r10) .. interleave_u32(r11) .. interleave_u32(r12)
 		.. interleave_u32(r20) .. interleave_u32(r21) .. interleave_u32(r22)
 		.. interleave_u32(px) .. interleave_u32(py) .. interleave_u32(pz)
-	return build_PROP_Header(class_index, prop_name, 16, data) -- Tipe 16
+	return build_PROP_Header(class_index, prop_name, 16, data) -- ID 16 (CFrame)
 end
 
 local function build_PROP_Enum(class_index: number, prop_name: string, values: {any}): string
@@ -227,7 +227,7 @@ local function build_PROP_Enum(class_index: number, prop_name: string, values: {
 		local v = values[i]
 		ints[i] = typeof(v) == "EnumItem" and v.Value or 0
 	end
-	return build_PROP_Header(class_index, prop_name, 18, interleave_u32(ints)) -- Tipe 18
+	return build_PROP_Header(class_index, prop_name, 18, interleave_u32(ints)) -- ID 18 (Enum)
 end
 
 local function build_PROP_Color3uint8(class_index: number, prop_name: string, values: {Color3}): string
@@ -239,7 +239,7 @@ local function build_PROP_Color3uint8(class_index: number, prop_name: string, va
 		buffer.writeu8(b, count + (i - 1), math.round(v.G * 255))
 		buffer.writeu8(b, (count * 2) + (i - 1), math.round(v.B * 255))
 	end
-		return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b))
+	return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b)) -- ID 26 (Color3uint8)
 end
 
 -- ==========================================
