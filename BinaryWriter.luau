@@ -239,7 +239,7 @@ local function build_PROP_Color3uint8(class_index: number, prop_name: string, va
 		buffer.writeu8(b, count + (i - 1), math.round(v.G * 255))
 		buffer.writeu8(b, (count * 2) + (i - 1), math.round(v.B * 255))
 	end
-	return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b)) -- Tipe 26
+		return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b))
 end
 
 -- ==========================================
