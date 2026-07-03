@@ -384,7 +384,7 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 			local pName = prop.Name
 			local pType = prop.ValueType
 			
-			if pName == "Name" then continue end
+			if pName == "Name" or pName == "Grip" then continue end
 
 			local builder = TypeBuilders[pType]
 			if builder then
