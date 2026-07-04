@@ -362,7 +362,7 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 
 	for i = 1, #instances do instance_to_ref[instances[i]] = i - 1 end
 
-	for i = 1, #instances do
+		for i = 1, #instances do
 		local inst = instances[i]
 		local class_name = inst.ClassName
 		local ref_id = instance_to_ref[inst]
@@ -370,14 +370,19 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		if not class_groups[class_name] then class_groups[class_name] = {} end
 		table.insert(class_groups[class_name], ref_id)
 		
+		-- [FIX UTAMA]: Parenting Logic
 		if inst.Parent and instance_to_ref[inst.Parent] then
+			-- Kalau parentnya valid dan ikut ke-save, masukin ke child parent tersebut
 			table.insert(child_ids, ref_id)
 			table.insert(parent_ids, instance_to_ref[inst.Parent])
-		elseif isModel and inst.Parent == nil then
+		else
+			-- Kalau parentnya nggak ada di list (misal: 'game' / root), atau emang nil
+			-- Paksa set parent referent ke -1 biar nempel di DataModel (Root)
 			table.insert(child_ids, ref_id)
 			table.insert(parent_ids, -1)
 		end
 	end
+
 
 	local class_list = {}
 	for class_name, _ in class_groups do table.insert(class_list, class_name) end
