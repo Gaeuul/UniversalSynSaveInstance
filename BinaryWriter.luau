@@ -249,8 +249,8 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 	
 	for i = 1, count do
 		local val = values[i]
-		-- Karena extract_prop udah nge-tostring nilainya
-		if type(val) == "string" and val ~= "" and val ~= "null" then
+		-- PAKSA JADI URI (1) ASALKAN BUKAN NIL/NULL, WALAU KOSONG
+		if type(val) == "string" and val ~= "null" then
 			sourceTypes[i] = 1 -- 1 = Uri
 			table.insert(uris, val)
 		else
@@ -275,14 +275,13 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 		table.insert(uris_data, buffer.tostring(b_u))
 	end
 	
-	-- Footer untuk ObjectCount (0) dan ExternalObjectCount (0)
+	-- Footer untuk ObjectCount dan ExternalObjectCount
 	local b_footer = buffer.create(8)
 	buffer.writeu32(b_footer, 0, 0)
 	buffer.writeu32(b_footer, 4, 0)
 	
 	local data = b_sourceTypes .. uris_str .. table.concat(uris_data) .. buffer.tostring(b_footer)
 	
-	-- Type ID 34 adalah 0x22 untuk tipe Content
 	return build_PROP_Header(class_index, prop_name, 34, data) 
 end
 
@@ -317,6 +316,15 @@ local function extract_prop(instances, propName, valueType)
 	for i = 1, count do
 		local inst = instances[i]
 		local ok, val = pcall(function() return inst[propName] end)
+		
+		-- [TAMBAHAN FIX MESHCONTENT/TEXTURECONTENT]
+		if not ok or val == nil or val == "" then
+			if propName == "MeshContent" then
+				ok, val = pcall(function() return inst.MeshId end)
+			elseif propName == "TextureContent" then
+				ok, val = pcall(function() return inst.TextureID end)
+			end
+		end
 		
 		if ok and val ~= nil then
 			if valueType == "string" or valueType == "Content" or valueType == "BinaryString" or valueType == "ProtectedString" then
