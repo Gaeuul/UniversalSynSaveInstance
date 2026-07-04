@@ -331,6 +331,9 @@ local TypeBuilders = {
 -- ==========================================
 -- MAIN ENCODER (JEMBATAN PROPERTI)
 -- ==========================================
+-- Taruh ini di luar/sebelum fungsi extract_prop
+local get_hidden = gethiddenproperty or (getgenv and getgenv().gethiddenproperty)
+
 local function extract_prop(instances, propName, valueType)
 	local count = #instances
 	local values = table.create(count)
@@ -339,12 +342,24 @@ local function extract_prop(instances, propName, valueType)
 		local inst = instances[i]
 		local ok, val = pcall(function() return inst[propName] end)
 		
-		-- [TAMBAHAN FIX MESHCONTENT/TEXTURECONTENT]
-		if not ok or val == nil or val == "" then
+		-- [FIX UTAMA]: Tembus blokiran NotScriptable (Terrain.SmoothGrid) pakai gethiddenproperty
+		if not ok and get_hidden then
+			ok, val = pcall(function() return get_hidden(inst, propName) end)
+		end
+		
+		-- [FIX FALLBACK]: Kalau masih gagal, deteksi classnya dan ambil properti jadulnya
+		if not ok or val == nil or val == "" or val == "null" then
 			if propName == "MeshContent" then
 				ok, val = pcall(function() return inst.MeshId end)
 			elseif propName == "TextureContent" then
-				ok, val = pcall(function() return inst.TextureID end)
+				ok, val = pcall(function()
+					if inst:IsA("MeshPart") then return inst.TextureID
+					elseif inst:IsA("Decal") or inst:IsA("Texture") then return inst.Texture
+					elseif inst:IsA("ShirtGraphic") then return inst.Graphic
+					elseif inst:IsA("Shirt") then return inst.ShirtTemplate
+					elseif inst:IsA("Pants") then return inst.PantsTemplate
+					else return "" end
+				end)
 			end
 		end
 		
