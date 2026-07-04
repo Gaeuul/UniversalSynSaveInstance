@@ -75,15 +75,24 @@ local function build_INST(class_index: number, class_name: string, is_service: b
 	local count = #instance_ids
 	local name_len = #class_name
 	
-	local b = buffer.create(13 + name_len)
+	-- Hitung panjang byte yang dibutuhkan (kalau service, tambah 1 byte per instance buat array Service Markers)
+	local b = buffer.create(13 + name_len + (is_service and count or 0))
 	buffer.writeu32(b, 0, class_index)
 	buffer.writeu32(b, 4, name_len)
 	buffer.writestring(b, 8, class_name)
 	buffer.writeu8(b, 8 + name_len, is_service and 1 or 0)
 	buffer.writeu32(b, 9 + name_len, count)
 	
+	-- [FIX UTAMA]: Tulis array Service Markers kalau ini adalah service
+	if is_service then
+		for i = 1, count do
+			buffer.writeu8(b, 13 + name_len + (i - 1), 1)
+		end
+	end
+	
 	return write_chunk("INST", buffer.tostring(b) .. interleave_zigzag(instance_ids))
 end
+
 
 local function build_PRNT(child_ids: {number}, parent_ids: {number}): string
 	local b = buffer.create(5)
@@ -414,13 +423,22 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 	buffer.writeu32(f_header, 4, #instances)
 	table.insert(chunks, buffer.tostring(f_header))
 
-	local class_index_map = {}
+		local class_index_map = {}
 	local class_index = 0
 	for i = 1, #class_list do
 		local class_name = class_list[i]
 		class_index_map[class_name] = class_index
 		
-		table.insert(chunks, build_INST(class_index, class_name, false, class_groups[class_name]))
+		-- [FIX]: Cek apakah instance ini adalah Service Utama di DataModel
+		local is_svc = false
+		if ClassList and ClassList[class_name] and ClassList[class_name].Service then
+			is_svc = true
+		elseif class_name == "Workspace" or class_name == "Lighting" or class_name == "ReplicatedStorage" or class_name == "Players" or class_name == "StarterGui" or class_name == "StarterPack" or class_name == "StarterPlayer" then
+			is_svc = true -- Fallback pengaman kalau API Dump gagal ngenalin service
+		end
+		
+		-- Kirim flag is_svc ke builder INST
+		table.insert(chunks, build_INST(class_index, class_name, is_svc, class_groups[class_name]))
 		class_index += 1
 	end
 
