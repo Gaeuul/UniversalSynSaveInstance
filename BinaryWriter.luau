@@ -249,7 +249,7 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 	
 	for i = 1, count do
 		local val = values[i]
-		-- Paksa jadi Uri (1) asalkan string valid
+		-- Paksa jadi Uri (1) selama valuenya string valid, supaya Studio nggak komplain None (0)
 		if type(val) == "string" and val ~= "null" then
 			sourceTypes[i] = 1 -- 1 = Uri
 			table.insert(uris, val)
@@ -258,12 +258,10 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 		end
 	end
 	
-	-- [FIX UTAMA]: Tulis SourceTypes sebagai deretan uint8 (1 byte per instance), bukan u32 interleaved!
-	local b_sourceTypes = buffer.create(count)
-	for i = 1, count do
-		buffer.writeu8(b_sourceTypes, i - 1, sourceTypes[i])
-	end
-	local sourceTypes_str = buffer.tostring(b_sourceTypes)
+	-- [FIX UTAMA]: Gunakan interleave_zigzag!
+	-- Roblox membaca array ini dengan metode zigzag & difference encoding,
+	-- Jika tidak di-zigzag, angka 1 akan di-decode Studio menjadi -1 (penyebab crash pertama).
+	local b_sourceTypes = interleave_zigzag(sourceTypes)
 	
 	local uriCount = #uris
 	local b_uris = buffer.create(4)
@@ -285,12 +283,10 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 	buffer.writeu32(b_footer, 0, 0)
 	buffer.writeu32(b_footer, 4, 0)
 	
-	-- Gabungin sesuai urutan: SourceTypes -> UriCount -> Uris -> Footer (Object Refs)
-	local data = sourceTypes_str .. uris_str .. table.concat(uris_data) .. buffer.tostring(b_footer)
+	local data = b_sourceTypes .. uris_str .. table.concat(uris_data) .. buffer.tostring(b_footer)
 	
 	return build_PROP_Header(class_index, prop_name, 34, data) 
 end
-
 
 -- ==========================================
 -- KAMUS TIPE DATA DINAMIS (KEMBALI KE STRING!)
