@@ -242,12 +242,56 @@ local function build_PROP_Color3uint8(class_index: number, prop_name: string, va
 	return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b)) -- ID 26 (Color3uint8)
 end
 
+local function build_PROP_Content(class_index: number, prop_name: string, values: {any}): string
+	local count = #values
+	local sourceTypes = table.create(count)
+	local uris = {}
+	
+	for i = 1, count do
+		local val = values[i]
+		-- Karena extract_prop udah nge-tostring nilainya
+		if type(val) == "string" and val ~= "" and val ~= "null" then
+			sourceTypes[i] = 1 -- 1 = Uri
+			table.insert(uris, val)
+		else
+			sourceTypes[i] = 0 -- 0 = None
+		end
+	end
+	
+	local b_sourceTypes = interleave_u32(sourceTypes)
+	
+	local uriCount = #uris
+	local b_uris = buffer.create(4)
+	buffer.writeu32(b_uris, 0, uriCount)
+	local uris_str = buffer.tostring(b_uris)
+	
+	local uris_data = {}
+	for i = 1, uriCount do
+		local u = uris[i]
+		local u_len = #u
+		local b_u = buffer.create(4 + u_len)
+		buffer.writeu32(b_u, 0, u_len)
+		buffer.writestring(b_u, 4, u)
+		table.insert(uris_data, buffer.tostring(b_u))
+	end
+	
+	-- Footer untuk ObjectCount (0) dan ExternalObjectCount (0)
+	local b_footer = buffer.create(8)
+	buffer.writeu32(b_footer, 0, 0)
+	buffer.writeu32(b_footer, 4, 0)
+	
+	local data = b_sourceTypes .. uris_str .. table.concat(uris_data) .. buffer.tostring(b_footer)
+	
+	-- Type ID 34 adalah 0x22 untuk tipe Content
+	return build_PROP_Header(class_index, prop_name, 34, data) 
+end
+
 -- ==========================================
 -- KAMUS TIPE DATA DINAMIS (KEMBALI KE STRING!)
 -- ==========================================
 local TypeBuilders = {
 	["string"] = build_PROP_String,
-	["Content"] = build_PROP_String, -- BALIK KE STRING BIASA (ID 1)
+	["Content"] = build_PROP_Content,
 	["BinaryString"] = build_PROP_String,
 	["ProtectedString"] = build_PROP_String,
 	["bool"] = build_PROP_Bool,
@@ -371,8 +415,6 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		["Name"] = true,
 		["Grip"] = true,
 		["InitialSize"] = true,
-		["MeshContent"] = true,     -- BYPASS ERROR -1
-		["TextureContent"] = true   -- BYPASS ERROR -1
 	}
 
 	for i = 1, #class_list do
