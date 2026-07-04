@@ -75,23 +75,33 @@ local function build_INST(class_index: number, class_name: string, is_service: b
 	local count = #instance_ids
 	local name_len = #class_name
 	
-	-- Hitung panjang byte yang dibutuhkan (kalau service, tambah 1 byte per instance buat array Service Markers)
-	local b = buffer.create(13 + name_len + (is_service and count or 0))
-	buffer.writeu32(b, 0, class_index)
-	buffer.writeu32(b, 4, name_len)
-	buffer.writestring(b, 8, class_name)
-	buffer.writeu8(b, 8 + name_len, is_service and 1 or 0)
-	buffer.writeu32(b, 9 + name_len, count)
+	-- 1. Buat Header INST aja (13 byte + panjang string nama)
+	local b_header = buffer.create(13 + name_len)
+	buffer.writeu32(b_header, 0, class_index)
+	buffer.writeu32(b_header, 4, name_len)
+	buffer.writestring(b_header, 8, class_name)
+	buffer.writeu8(b_header, 8 + name_len, is_service and 1 or 0)
+	buffer.writeu32(b_header, 9 + name_len, count)
 	
-	-- [FIX UTAMA]: Tulis array Service Markers kalau ini adalah service
+	local header_str = buffer.tostring(b_header)
+	
+	-- 2. Tulis Referents (Wajib sebelum Service Markers)
+	local referents_str = interleave_zigzag(instance_ids)
+	
+	-- 3. Tulis array Service Markers kalau ini adalah service
+	local service_markers_str = ""
 	if is_service then
+		local b_svc = buffer.create(count)
 		for i = 1, count do
-			buffer.writeu8(b, 13 + name_len + (i - 1), 1)
+			buffer.writeu8(b_svc, i - 1, 1)
 		end
+		service_markers_str = buffer.tostring(b_svc)
 	end
 	
-	return write_chunk("INST", buffer.tostring(b) .. interleave_zigzag(instance_ids))
+	-- Gabungin semua sesuai urutan hukum alam Roblox: Header -> Referents -> Service Markers
+	return write_chunk("INST", header_str .. referents_str .. service_markers_str)
 end
+
 
 
 local function build_PRNT(child_ids: {number}, parent_ids: {number}): string
