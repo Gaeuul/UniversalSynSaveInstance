@@ -249,7 +249,7 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 	
 	for i = 1, count do
 		local val = values[i]
-		-- PAKSA JADI URI (1) ASALKAN BUKAN NIL/NULL, WALAU KOSONG
+		-- Paksa jadi Uri (1) asalkan string valid
 		if type(val) == "string" and val ~= "null" then
 			sourceTypes[i] = 1 -- 1 = Uri
 			table.insert(uris, val)
@@ -258,7 +258,12 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 		end
 	end
 	
-	local b_sourceTypes = interleave_u32(sourceTypes)
+	-- [FIX UTAMA]: Tulis SourceTypes sebagai deretan uint8 (1 byte per instance), bukan u32 interleaved!
+	local b_sourceTypes = buffer.create(count)
+	for i = 1, count do
+		buffer.writeu8(b_sourceTypes, i - 1, sourceTypes[i])
+	end
+	local sourceTypes_str = buffer.tostring(b_sourceTypes)
 	
 	local uriCount = #uris
 	local b_uris = buffer.create(4)
@@ -275,15 +280,17 @@ local function build_PROP_Content(class_index: number, prop_name: string, values
 		table.insert(uris_data, buffer.tostring(b_u))
 	end
 	
-	-- Footer untuk ObjectCount dan ExternalObjectCount
+	-- Footer untuk ObjectCount (0) dan ExternalObjectCount (0)
 	local b_footer = buffer.create(8)
 	buffer.writeu32(b_footer, 0, 0)
 	buffer.writeu32(b_footer, 4, 0)
 	
-	local data = b_sourceTypes .. uris_str .. table.concat(uris_data) .. buffer.tostring(b_footer)
+	-- Gabungin sesuai urutan: SourceTypes -> UriCount -> Uris -> Footer (Object Refs)
+	local data = sourceTypes_str .. uris_str .. table.concat(uris_data) .. buffer.tostring(b_footer)
 	
 	return build_PROP_Header(class_index, prop_name, 34, data) 
 end
+
 
 -- ==========================================
 -- KAMUS TIPE DATA DINAMIS (KEMBALI KE STRING!)
