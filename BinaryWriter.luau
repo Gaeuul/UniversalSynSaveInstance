@@ -242,62 +242,12 @@ local function build_PROP_Color3uint8(class_index: number, prop_name: string, va
 	return build_PROP_Header(class_index, prop_name, 26, buffer.tostring(b)) -- ID 26 (Color3uint8)
 end
 
--- [PRO-PLAYER MODE]: Fungsi khusus untuk Content (ID 34)
-local function build_PROP_Content(class_index: number, prop_name: string, values: {any}): string
-	local count = #values
-	local sourceTypes = table.create(count)
-	local uris = {}
-	local uriCount = 0
-
-	for i = 1, count do
-		local val = values[i]
-		local strVal = tostring(val or "")
-		if strVal == "" or strVal == "null" then
-			sourceTypes[i] = 0 -- 0 = None
-		else
-			sourceTypes[i] = 1 -- 1 = Uri
-			uriCount = uriCount + 1
-			table.insert(uris, strVal)
-		end
-	end
-
-	local b_types = interleave_u32(sourceTypes)
-	
-	local uriLen = 0
-	for i = 1, uriCount do
-		uriLen = uriLen + 4 + #uris[i]
-	end
-	
-	-- Buffer untuk UriCount (4), Uris (uriLen), ObjectCount (4), ExternalObjectCount (4)
-	local b_uris = buffer.create(4 + uriLen + 8)
-	local offset = 0
-	
-	buffer.writeu32(b_uris, offset, uriCount)
-	offset = offset + 4
-	
-	for i = 1, uriCount do
-		local str = uris[i]
-		buffer.writeu32(b_uris, offset, #str)
-		offset = offset + 4
-		buffer.writestring(b_uris, offset, str)
-		offset = offset + #str
-	end
-	
-	buffer.writeu32(b_uris, offset, 0) -- ObjectCount = 0
-	offset = offset + 4
-	buffer.writeu32(b_uris, offset, 0) -- ExternalObjectCount = 0
-	
-	local data = b_types .. buffer.tostring(b_uris)
-	return build_PROP_Header(class_index, prop_name, 34, data) -- ID 34 Sesuai permintaan Roblox!
-end
-
-
 -- ==========================================
--- KAMUS TIPE DATA DINAMIS
+-- KAMUS TIPE DATA DINAMIS (KEMBALI KE STRING!)
 -- ==========================================
 local TypeBuilders = {
 	["string"] = build_PROP_String,
-	["Content"] = build_PROP_Content, -- UDAH DIGANTI KE FUNGSI PRO-PLAYER!
+	["Content"] = build_PROP_String, -- BALIK KE STRING BIASA (ID 1)
 	["BinaryString"] = build_PROP_String,
 	["ProtectedString"] = build_PROP_String,
 	["bool"] = build_PROP_Bool,
@@ -414,11 +364,15 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 		class_index += 1
 	end
 
-    -- [PRO-PLAYER MODE]: Tabel Blacklist yang Rapi!
+	-- =========================================
+	-- THE ULTIMATE BLACKLIST (SANG PENYELAMAT)
+	-- =========================================
 	local BLACKLIST = {
 		["Name"] = true,
 		["Grip"] = true,
-		["InitialSize"] = true
+		["InitialSize"] = true,
+		["MeshContent"] = true,     -- BYPASS ERROR -1
+		["TextureContent"] = true   -- BYPASS ERROR -1
 	}
 
 	for i = 1, #class_list do
@@ -441,7 +395,7 @@ function BinaryWriter.Serialize(instances: {Instance}, isModel: boolean, ClassLi
 			local pName = prop.Name
 			local pType = prop.ValueType
 			
-			-- Kalau propertinya ada di tabel Blacklist, SKIP!
+			-- BUANG SEMUA PROPERTI LAKNAT INI!
 			if BLACKLIST[pName] then continue end
 			
 			local builder = TypeBuilders[pType]
