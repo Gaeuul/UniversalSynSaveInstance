@@ -12,7 +12,7 @@ local SSI = "saveinstance"
 local synsaveinstance = loadstring(game:HttpGet(RepoURL .. SSI .. ".luau", true), SSI)()
 
 local Options = {
-    Binary = true,
+ -- Binary = true,
     SafeMode = false,  
     BoostFPS = false,     
     ShowStatus = true
