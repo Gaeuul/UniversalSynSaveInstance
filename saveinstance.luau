@@ -2213,7 +2213,6 @@ local GLOBAL_ENV = getgenv and getgenv() or _G or shared
 
 type SaveOptions = {
 	__DEBUG_MODE: boolean?,
-	Binary: boolean?,
 	ReadMe: boolean?,
 	SafeMode: boolean?,
 	KillAllScripts: boolean?,
@@ -2288,7 +2287,7 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 		-- * New:
 		__DEBUG_MODE = false,
 
-		Binary = false, -- true in syn newer versions (false in our case because no binary support yet), Description: Saves everything in Binary Mode (rbxl/rbxm).
+		-- Binary = false, -- true in syn newer versions (false in our case because no binary support yet), Description: Saves everything in Binary Mode (rbxl/rbxm).
 		Callback = false,
 		--Clipboard/CopyToClipboard = false, -- Description: If set to true, the serialized data will be set to the clipboard, which can be later pasted into studio easily. Useful for saving models. (Binary Only)
 		-- MaxThreads = 3 -- Description: The number of decompilation threads that can run at once. More threads means it can decompile for scripts at a time.
@@ -2720,12 +2719,7 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 			end
 		end
 
-				local filetype
-		if OPTIONS.Binary then
-			filetype = IsModel and ".rbxm" or ".rbxl"
-		else
-			filetype = IsModel and ".rbxmx" or ".rbxlx"
-		end
+		local filetype = IsModel and ".rbxmx" or ".rbxlx"
 
 		if FilePath then
 			placename = FilePath
@@ -3278,7 +3272,6 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 	local gethiddenproperty_fallback
 
 	
-	local BinaryInstances_List = {}
 	local function save_hierarchy(hierarchy: {any})
 		for _, instance in hierarchy do
 			local InstanceOverride, ClassTagOverride, ClassNameOverride
@@ -3355,23 +3348,6 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 			-- ? The reason we only save .Name (and few other props in save_specific) is because
 			-- ? we can be sure this is a custom container (ex. NilInstancesFixes)
 			-- ? However, in case of NotCreatableFixes, the Instance might have Tags, Attributes etc. that can potentially be saved (even though it's a Folder)
-			
-			if OPTIONS.Binary then
-				if typeof(instance) == "Instance" then
-					table.insert(BinaryInstances_List, instance)
-				end
-				if SkipEntirely ~= false then
-					local Children = InstanceOverride and InstanceOverride.__Children or instance:GetChildren()
-					if #Children ~= 0 then
-						save_hierarchy(Children)
-					end
-				end
-				if DecompileIgnoring and DecompileIgnoring == instance then
-					DecompileIgnoring = nil
-				end
-				continue
-			end
-
 			if InstanceOverride and InstanceOverride.__SaveSpecific then
 				savebuffer[savebuffer_size] = save_specific(ClassName, InstanceOverride.Properties) -- ! Assuming anything that has __SaveSpecific will have .Properties
 				savebuffer_size += 1
@@ -3722,7 +3698,6 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 	end
 
 	local function save_game()
-	table.clear(BinaryInstances_List)
 		do
 			if IsModel then
 				--[[
@@ -3878,33 +3853,6 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 					.. "\n]]"
 			)
 		end
-		
-		if OPTIONS.Binary then
-			local BinaryWriter
-			local ok, result = pcall(function()
-				return loadstring(game:HttpGet("https://raw.githubusercontent.com/Gaeuul/UniversalSynSaveInstance/main/BinaryWriter.luau", true))()
-			end)
-			
-			if ok and type(result) == "table" then
-				BinaryWriter = result
-				-- [UPDATE]: Kita kirim ClassList (Kamus API) ke mesin Binary!
-				local binaryData = BinaryWriter.Serialize(BinaryInstances_List, IsModel, ClassList)
-				
-				run_with_loading(
-					"Menulis File Binary (.rbxl)...",
-					nil,
-					true,
-					writefile,
-					placename,
-					binaryData
-				)
-			else
-				warn("GAGAL LOAD BinaryWriter.luau dari GitHub lu!")
-			end
-			
-			return
-		end
-		
 		do
 			local tmp = { "<SharedStrings>" }
 			for value, identifier in SharedStrings do
