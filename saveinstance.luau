@@ -2469,10 +2469,10 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 		OPTIONS.NilInstancesFixes.PackageLink =
 			construct_NilinstanceFix("Package already has a PackageLink", "Folder", true)
 
-		if CustomOptions2 and type(CustomOptions2) == "table" then
+				if CustomOptions2 and type(CustomOptions2) == "table" then
 			local tmp = CustomOptions
 			local Type = typeof(tmp)
-			CustomOptions = CustomOptions2
+			CustomOptions = table.clone(CustomOptions2 :: any)
 			if Type == "Instance" then
 				CustomOptions.Object = tmp
 			elseif Type == "table" and typeof(tmp[1]) == "Instance" then
@@ -2482,8 +2482,8 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 		end
 
 		local Type = typeof(CustomOptions)
-
 		if Type == "table" then
+			CustomOptions = table.clone(CustomOptions :: any)
 			if typeof(CustomOptions[1]) == "Instance" then
 				OPTIONS.mode = "invalidmode"
 				OPTIONS.ExtraInstances = CustomOptions
@@ -3204,7 +3204,7 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 		end
 	end
 
-	local function GetInheritedProps(className)
+	    local function GetInheritedProps(className)
 		local cached = inherited_properties[className]
 		if cached then
 			return cached
@@ -3213,13 +3213,9 @@ local function synsaveinstance(CustomOptions: SaveOptions?, CustomOptions2: Save
 		local prop_list = {}
 		local layer = ClassList[className]
 		while layer do
-			local layer_props = layer.Properties
-			table.move(layer_props, 1, #layer_props, #prop_list + 1, prop_list)
-
-			-- for _, prop in layer.Properties do
-			-- 	prop_list[prop_count] = prop -- ? table.clone is needed for case where .Default is modified
-			-- 	prop_count += 1
-			-- end
+			for _, prop in layer.Properties do
+				prop_list[#prop_list + 1] = table.clone(prop) 
+			end
 
 			layer = ClassList[layer.Superclass]
 		end
